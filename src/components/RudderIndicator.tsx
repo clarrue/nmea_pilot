@@ -1,125 +1,197 @@
+/**
+ * RudderIndicator — arc-style gauge, -35° (port) to +35° (starboard).
+ *
+ * Layout:
+ *   - Thick grey arc track
+ *   - A needle sweeping along the arc
+ *   - Large digital angle readout in the centre
+ *   - PORT / STBD labels at the extremes
+ *   - All monochrome (no port/centre/stbd colour zones)
+ */
 import React, {memo} from 'react';
-import Svg, {G, Line, Rect, Text as SvgText} from 'react-native-svg';
+import Svg, {
+  Circle,
+  Line,
+  Path,
+  Text as SvgText,
+} from 'react-native-svg';
 import {useTheme} from '../theme/ThemeContext';
 
 interface RudderIndicatorProps {
-  angle?: number; // -35 to +35, negative=port, positive=starboard
-  size?: number;
+  angle?: number; // -35 (full port) to +35 (full stbd)
+  size?: number;  // controls width; height = size * (HEIGHT / WIDTH)
 }
 
+// ── SVG constants ─────────────────────────────────────────────────────────────
 const WIDTH = 300;
-const HEIGHT = 80;
-const TRACK_Y = 40;
-const TRACK_LEFT = 30;
-const TRACK_RIGHT = 270;
-const TRACK_WIDTH = TRACK_RIGHT - TRACK_LEFT;
-const MAX_ANGLE = 35;
+const HEIGHT = 220;
+const CX = 150;
+const CY = 210; // arc centre near bottom so the arc sweeps over the label area
+
+const R = 170;       // arc radius
+const ARC_W = 28;    // coloured band stroke width
+const MAX_DEG = 35;  // physical rudder limit
+
+// The gauge spans from -MAX_DEG to +MAX_DEG relative to straight-ahead (top).
+// We map that to SVG angles: svgAngle = bowAngle - 90
+// So: -35° bow → SVG -125°;  0° bow → SVG -90°;  +35° bow → SVG -55°
+function bowToSVG(bowDeg: number): number {
+  return bowDeg - 90; // SVG rotation from 3-o'clock reference
+}
+
+// Point on the arc for a given rudder angle
+function arcPoint(angleDeg: number, r: number) {
+  const rad = (bowToSVG(angleDeg) * Math.PI) / 180;
+  return {x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad)};
+}
+
+// Build an SVG arc path segment from angle a1 to a2 at radius r (clockwise)
+function arcPath(a1: number, a2: number, r: number): string {
+  const p1 = arcPoint(a1, r);
+  const p2 = arcPoint(a2, r);
+  const sweep = a2 > a1 ? 1 : 0;
+  const delta = Math.abs(a2 - a1);
+  const large = delta > 180 ? 1 : 0;
+  return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} ${sweep} ${p2.x} ${p2.y}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function RudderIndicatorInner({angle = 0, size = 300}: RudderIndicatorProps) {
   const {colors} = useTheme();
-  const clamped = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, angle));
+  const clamped = Math.max(-MAX_DEG, Math.min(MAX_DEG, angle));
 
-  // Center x = mid of track
-  const centerX = (TRACK_LEFT + TRACK_RIGHT) / 2;
-  // Bar extends from center to angle position
-  const angleToX = (a: number) =>
-    centerX + (a / MAX_ANGLE) * (TRACK_WIDTH / 2);
-  const barX = angleToX(clamped);
-  const barLeft = Math.min(centerX, barX);
-  const barWidth = Math.abs(barX - centerX);
+  // The filled arc goes from 0° to the current angle
+  const filledArc =
+    Math.abs(clamped) > 0.5 ? arcPath(0, clamped, R) : null;
 
-  // Color: port=red, center=green, starboard=blue
-  const barColor =
-    Math.abs(clamped) < 2
-      ? colors.success
-      : clamped < 0
-      ? colors.danger
-      : colors.rudderBar;
+  // Needle tip position
+  const needleTip = arcPoint(clamped, R - ARC_W / 2 - 4);
+  const needleBase = arcPoint(clamped, R - ARC_W / 2 - 30);
+
+  // Scale factor for the SVG → displayed size
+  const svgHeight = (HEIGHT * size) / WIDTH;
 
   return (
     <Svg
       width={size}
-      height={(HEIGHT * size) / WIDTH}
+      height={svgHeight}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       accessibilityLabel="Rudder Indicator">
-      {/* Track */}
-      <Rect
-        x={TRACK_LEFT}
-        y={TRACK_Y - 6}
-        width={TRACK_WIDTH}
-        height={12}
-        rx={4}
-        fill={colors.surfaceElevated}
-        stroke={colors.border}
-        strokeWidth={1}
+
+      {/* ── Background arc track (grey) ── */}
+      <Path
+        d={arcPath(-MAX_DEG, MAX_DEG, R)}
+        stroke={colors.surfaceElevated}
+        strokeWidth={ARC_W}
+        fill="none"
+        strokeLinecap="round"
       />
 
-      {/* Bar */}
-      {barWidth > 0 && (
-        <Rect
-          x={barLeft}
-          y={TRACK_Y - 6}
-          width={barWidth}
-          height={12}
-          fill={barColor}
-          opacity={0.85}
+      {/* ── Filled deflection arc (neutral) ── */}
+      {filledArc && (
+        <Path
+          d={filledArc}
+          stroke={colors.textSecondary}
+          strokeWidth={ARC_W}
+          fill="none"
+          strokeLinecap="butt"
+          opacity={0.9}
         />
       )}
 
-      {/* Center tick */}
+      {/* ── Centre-zero tick ── */}
+      {(() => {
+        const c0 = arcPoint(0, R + ARC_W / 2 + 4);
+        const c1 = arcPoint(0, R - ARC_W / 2 - 4);
+        return (
+          <Line
+            x1={c0.x} y1={c0.y}
+            x2={c1.x} y2={c1.y}
+            stroke={colors.text}
+            strokeWidth={2.5}
+          />
+        );
+      })()}
+
+      {/* ── Limit ticks at ±35° ── */}
+      {([-MAX_DEG, MAX_DEG] as number[]).map(a => {
+        const outer = arcPoint(a, R + ARC_W / 2 + 4);
+        const inner = arcPoint(a, R - ARC_W / 2 - 4);
+        return (
+          <Line
+            key={a}
+            x1={outer.x} y1={outer.y}
+            x2={inner.x} y2={inner.y}
+            stroke={colors.textMuted}
+            strokeWidth={1.5}
+          />
+        );
+      })}
+
+      {/* ── Needle ── */}
       <Line
-        x1={centerX}
-        y1={TRACK_Y - 12}
-        x2={centerX}
-        y2={TRACK_Y + 12}
-        stroke={colors.text}
-        strokeWidth={2}
+        x1={needleBase.x}
+        y1={needleBase.y}
+        x2={needleTip.x}
+        y2={needleTip.y}
+        stroke={colors.textSecondary}
+        strokeWidth={5}
+        strokeLinecap="round"
+      />
+      <Circle
+        cx={needleTip.x}
+        cy={needleTip.y}
+        r={7}
+        fill={colors.textSecondary}
       />
 
-      {/* -35 label */}
-      <SvgText
-        x={TRACK_LEFT}
-        y={TRACK_Y + 24}
-        textAnchor="middle"
-        fill={colors.textMuted}
-        fontSize="10">
-        P35
-      </SvgText>
+      {/* ── PORT label ── */}
+      {(() => {
+        const p = arcPoint(-MAX_DEG, R + ARC_W / 2 + 18);
+        return (
+          <SvgText
+            x={p.x}
+            y={p.y}
+            textAnchor="middle"
+            alignmentBaseline="central"
+            fill={colors.textSecondary}
+            fontSize="13"
+            fontWeight="bold">
+            P
+          </SvgText>
+        );
+      })()}
 
-      {/* +35 label */}
-      <SvgText
-        x={TRACK_RIGHT}
-        y={TRACK_Y + 24}
-        textAnchor="middle"
-        fill={colors.textMuted}
-        fontSize="10">
-        S35
-      </SvgText>
+      {/* ── STBD label ── */}
+      {(() => {
+        const p = arcPoint(MAX_DEG, R + ARC_W / 2 + 18);
+        return (
+          <SvgText
+            x={p.x}
+            y={p.y}
+            textAnchor="middle"
+            alignmentBaseline="central"
+            fill={colors.textSecondary}
+            fontSize="13"
+            fontWeight="bold">
+            S
+          </SvgText>
+        );
+      })()}
 
-      {/* Angle label */}
+      {/* ── Large digital angle ── */}
       <SvgText
-        x={centerX}
-        y={TRACK_Y + 24}
+        x={CX}
+        y={CY - R + 64}
         textAnchor="middle"
+        alignmentBaseline="central"
         fill={colors.text}
-        fontSize="12"
-        fontWeight="bold">
-        {clamped > 0 ? '+' : ''}
-        {clamped.toFixed(1)}°
+        fontSize="58"
+        fontWeight="900"
+        fontVariant="tabular-nums">
+        {clamped > 0 ? '+' : ''}{clamped.toFixed(1)}°
       </SvgText>
-
-      {/* Pointer triangle */}
-      <G>
-        <Line
-          x1={barX}
-          y1={TRACK_Y - 12}
-          x2={barX}
-          y2={TRACK_Y + 12}
-          stroke={barColor}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-        />
-      </G>
     </Svg>
   );
 }

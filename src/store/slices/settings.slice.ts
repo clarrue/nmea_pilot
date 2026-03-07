@@ -26,7 +26,7 @@ export interface Settings {
 const STORAGE_KEY = '@nmea_settings';
 
 const DEFAULT_SETTINGS: Settings = {
-  nmea: {host: '192.168.1.100', port: 10110},
+  nmea: {host: '192.168.4.1', port: 1457},
   pypilot: {host: '192.168.1.10', port: 23322},
   theme: 'day',
   depthUnit: 'm',

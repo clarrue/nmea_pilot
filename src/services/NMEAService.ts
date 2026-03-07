@@ -1,5 +1,4 @@
-import TcpSocket from 'react-native-tcp-socket';
-import {ConnectionManager} from './ConnectionManager';
+import UdpSockets from 'react-native-udp';
 import {
   validateChecksum,
   getSentenceType,
@@ -10,46 +9,86 @@ import {
 } from './NMEAParsers';
 import {useBoatStore} from '../store/useBoatStore';
 
-class NMEAServiceClass extends ConnectionManager {
-  private socket: ReturnType<typeof TcpSocket.createConnection> | null = null;
+class NMEAServiceClass {
+  private socket: InstanceType<typeof UdpSockets.Socket> | null = null;
   private lineBuffer: string = '';
+  private stopped: boolean = false;
+  private currentPort: number = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-  doConnect(host: string, port: number): void {
-    const store = useBoatStore.getState();
-    store.setNmeaStatus('connecting');
+  connect(_host: string, port: number): void {
+    this.stopped = false;
+    this.currentPort = port;
+    this.clearRetry();
+    this.doConnect(port);
+  }
 
-    this.socket = TcpSocket.createConnection(
-      {host, port, tls: false},
-      () => {
-        this.onConnected();
-        useBoatStore.getState().setNmeaStatus('connected');
-      },
-    );
+  disconnect(): void {
+    this.stopped = true;
+    this.clearRetry();
+    this.closeSocket();
+    useBoatStore.getState().setNmeaStatus('disconnected');
+  }
 
-    this.socket.on('data', (data: Buffer | string) => {
-      const chunk =
-        typeof data === 'string' ? data : data.toString('utf8');
+  reconnect(host: string, port: number): void {
+    this.disconnect();
+    setTimeout(() => this.connect(host, port), 200);
+  }
+
+  private doConnect(port: number): void {
+    useBoatStore.getState().setNmeaStatus('connecting');
+
+    const socket = UdpSockets.createSocket({type: 'udp4', reusePort: true});
+    this.socket = socket;
+
+    socket.on('error', (err: Error) => {
+      useBoatStore.getState().setNmeaStatus('error', err.message);
+      this.closeSocket();
+      this.scheduleRetry();
+    });
+
+    socket.on('close', () => {
+      this.socket = null;
+      if (!this.stopped) {
+        useBoatStore.getState().setNmeaStatus('disconnected');
+        this.scheduleRetry();
+      }
+    });
+
+    socket.bind(port, () => {
+      socket.setBroadcast(true);
+      useBoatStore.getState().setNmeaStatus('connected');
+    });
+
+    socket.on('message', (data: Buffer) => {
+      const chunk = data.toString('utf8');
       this.lineBuffer += chunk;
       this.processBuffer();
     });
-
-    this.socket.on('error', (err: Error) => {
-      useBoatStore.getState().setNmeaStatus('error', err.message);
-    });
-
-    this.socket.on('close', () => {
-      useBoatStore.getState().setNmeaStatus('disconnected');
-      this.socket = null;
-      this.onDisconnected();
-    });
   }
 
-  doDisconnect(): void {
+  private closeSocket(): void {
     if (this.socket) {
-      this.socket.destroy();
+      try { this.socket.close(); } catch {}
       this.socket = null;
     }
     this.lineBuffer = '';
+  }
+
+  private scheduleRetry(): void {
+    if (this.stopped) {return;}
+    this.retryTimer = setTimeout(() => {
+      if (!this.stopped) {
+        this.doConnect(this.currentPort);
+      }
+    }, 5000);
+  }
+
+  private clearRetry(): void {
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
   }
 
   private processBuffer(): void {
@@ -61,8 +100,6 @@ class NMEAServiceClass extends ConnectionManager {
         this.dispatchSentence(line);
       }
     }
-
-    // Prevent buffer from growing unbounded (e.g., if \n never arrives)
     if (this.lineBuffer.length > 4096) {
       this.lineBuffer = '';
     }
@@ -89,15 +126,9 @@ class NMEAServiceClass extends ConnectionManager {
       case 'VHW': {
         const vhw = parseVHW(sentence);
         if (vhw) {
-          if (vhw.headingTrue !== null) {
-            store.setHeadingTrue(vhw.headingTrue);
-          }
-          if (vhw.headingMag !== null) {
-            store.setHeadingMag(vhw.headingMag);
-          }
-          if (vhw.waterSpeedKnots !== null) {
-            store.setWaterSpeed(vhw.waterSpeedKnots);
-          }
+          if (vhw.headingTrue !== null) {store.setHeadingTrue(vhw.headingTrue);}
+          if (vhw.headingMag !== null) {store.setHeadingMag(vhw.headingMag);}
+          if (vhw.waterSpeedKnots !== null) {store.setWaterSpeed(vhw.waterSpeedKnots);}
         }
         break;
       }
