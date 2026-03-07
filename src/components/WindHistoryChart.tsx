@@ -296,6 +296,17 @@ function WindHistoryChartInner({
             rx={2}
           />
 
+          {/* Bow reference line (centre = 0° = dead ahead) */}
+          <Line
+            x1={PAD.l}
+            y1={DIR_Y + DIR_H / 2}
+            x2={VB_W - PAD.r}
+            y2={DIR_Y + DIR_H / 2}
+            stroke={colors.border}
+            strokeWidth={0.8}
+            strokeDasharray="3,3"
+          />
+
           {/* Direction arrows — subsampled to ~24 visible regardless of record count */}
           {(() => {
             const step = Math.max(1, Math.ceil(n / (PLOT_W / 15)));

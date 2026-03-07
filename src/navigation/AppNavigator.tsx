@@ -5,6 +5,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {DashboardScreen} from '../screens/DashboardScreen';
 import {WindScreen} from '../screens/WindScreen';
 import {AutopilotScreen} from '../screens/AutopilotScreen';
+import {NavigationScreen} from '../screens/NavigationScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
 import {useTheme} from '../theme/ThemeContext';
 
@@ -12,6 +13,7 @@ export type RootTabParamList = {
   Dashboard: undefined;
   Wind: undefined;
   Autopilot: undefined;
+  Navigation: undefined;
   Settings: undefined;
 };
 
@@ -69,6 +71,16 @@ export function AppNavigator() {
             tabBarLabel: 'Autopilot',
             tabBarIcon: ({color, focused}) => (
               <TabIcon icon="⛵" focused={focused} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Navigation"
+          component={NavigationScreen}
+          options={{
+            tabBarLabel: 'Nav',
+            tabBarIcon: ({color, focused}) => (
+              <TabIcon icon="◎" focused={focused} color={color} />
             ),
           }}
         />

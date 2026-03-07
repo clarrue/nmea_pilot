@@ -1,5 +1,5 @@
 import React, {useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions} from 'react-native';
+import {StyleSheet, Text, TouchableOpacity, View, useWindowDimensions} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {WindRose} from '../components/WindRose';
 import {CompassRose} from '../components/CompassRose';
@@ -10,10 +10,13 @@ import {useBoatStore} from '../store/useBoatStore';
 
 // ─── Panel header ─────────────────────────────────────────────────────────────
 
-function PanelHeader({title, colors}: {title: string; colors: any}) {
+function PanelHeader({title, accent, colors}: {title: string; accent: string; colors: any}) {
   return (
-    <View style={[styles.panelHeader, {borderBottomColor: colors.border}]}>
-      <Text style={[styles.panelTitle, {color: colors.accent}]}>{title}</Text>
+    <View>
+      <View style={[styles.panelAccentBar, {backgroundColor: accent}]} />
+      <View style={[styles.panelHeader, {borderBottomColor: colors.border}]}>
+        <Text style={[styles.panelTitle, {color: accent}]}>{title}</Text>
+      </View>
     </View>
   );
 }
@@ -25,7 +28,7 @@ function BigValue({
   value,
   unit,
   color,
-  valueSize = 64,
+  valueSize = 56,
   colors,
 }: {
   label: string;
@@ -57,7 +60,11 @@ function BigValue({
 
 // ─── Autopilot panel ─────────────────────────────────────────────────────────
 
-function AutopilotPanel({colors, rudderSize}: {colors: any; rudderSize: number}) {
+function AutopilotPanel({colors, rudderSize, compact = false}: {
+  colors: any;
+  rudderSize: number;
+  compact?: boolean;
+}) {
   const apEnabled = useBoatStore(s => s.apEnabled);
   const apMode = useBoatStore(s => s.apMode);
   const apHeadingCmd = useBoatStore(s => s.apHeadingCmd);
@@ -69,11 +76,17 @@ function AutopilotPanel({colors, rudderSize}: {colors: any; rudderSize: number})
     : null;
 
   return (
-    <View style={[styles.panel, {backgroundColor: colors.surface, borderRightColor: colors.border}]}>
-      <PanelHeader title="AUTOPILOT" colors={colors} />
+    <View style={[styles.panel, {backgroundColor: colors.surface}]}>
+      <PanelHeader title="AUTOPILOT" accent={colors.accent} colors={colors} />
 
-      {/* Engaged / Standby */}
-      <View style={styles.apStatusRow}>
+      {/* Status pill badge */}
+      <View style={[
+        styles.apStatusBadge,
+        {
+          backgroundColor: apEnabled ? colors.success + '22' : colors.surfaceElevated,
+          borderColor: apEnabled ? colors.success : colors.border,
+        },
+      ]}>
         <View style={[styles.apDot, {backgroundColor: apEnabled ? colors.success : colors.textMuted}]} />
         <Text style={[styles.apStatusText, {color: apEnabled ? colors.success : colors.textMuted}]}>
           {apEnabled ? 'ENGAGED' : 'STANDBY'}
@@ -84,23 +97,20 @@ function AutopilotPanel({colors, rudderSize}: {colors: any; rudderSize: number})
         {apMode ? apMode.toUpperCase() : '---'}
       </Text>
 
-      {/* Target heading */}
       <BigValue
         label="TARGET HDG"
         value={targetHdg}
         color={colors.accent}
-        valueSize={72}
+        valueSize={compact ? 44 : 60}
         colors={colors}
       />
 
-      {/* Rudder — big arc gauge with built-in digital readout */}
       <View style={styles.centeredBlock}>
         <Text style={[styles.sectionLabel, {color: colors.textSecondary}]}>RUDDER</Text>
         <RudderIndicator angle={rudderAngle ?? 0} size={rudderSize} />
       </View>
 
-      {/* IMU */}
-      {imu && (
+      {!compact && imu && (
         <View style={styles.imuRow}>
           <View style={styles.imuCell}>
             <Text style={[styles.sectionLabel, {color: colors.textSecondary}]}>PITCH</Text>
@@ -131,7 +141,6 @@ function WindPanel({colors, roseSize}: {colors: any; roseSize: number}) {
   const activeWind = windMode === 'apparent' ? windApparent : windTrue;
   const accentColor = windMode === 'apparent' ? colors.windApparent : colors.windTrue;
 
-  // Compute last-1h AVG speed and MAX GUST from history
   const {avgSpeed, maxGust} = useMemo(() => {
     const cutoff = Date.now() - 3_600_000;
     const recs = windHistory.filter(r => r.t >= cutoff);
@@ -145,8 +154,8 @@ function WindPanel({colors, roseSize}: {colors: any; roseSize: number}) {
   }, [windHistory, windMode]);
 
   return (
-    <View style={[styles.panel, {backgroundColor: colors.surface, borderRightColor: colors.border}]}>
-      <PanelHeader title="WIND" colors={colors} />
+    <View style={[styles.panel, {backgroundColor: colors.surface}]}>
+      <PanelHeader title="WIND" accent={colors.windApparent} colors={colors} />
 
       <View style={styles.centeredBlock}>
         <WindRose
@@ -156,37 +165,23 @@ function WindPanel({colors, roseSize}: {colors: any; roseSize: number}) {
         />
       </View>
 
-      {/* APPARENT / TRUE toggle below the rose */}
       <View style={styles.windToggleRow}>
         <TouchableOpacity
-          style={[
-            styles.windToggleBtn,
-            windMode === 'apparent' && {backgroundColor: colors.windApparent},
-          ]}
+          style={[styles.windToggleBtn, windMode === 'apparent' && {backgroundColor: colors.windApparent}]}
           onPress={() => setWindMode('apparent')}>
-          <Text style={[
-            styles.windToggleTxt,
-            {color: windMode === 'apparent' ? colors.background : colors.textMuted},
-          ]}>
-            APPARENT
+          <Text style={[styles.windToggleTxt, {color: windMode === 'apparent' ? colors.background : colors.textMuted}]}>
+            AWA
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.windToggleBtn,
-            windMode === 'true' && {backgroundColor: colors.windTrue},
-          ]}
+          style={[styles.windToggleBtn, windMode === 'true' && {backgroundColor: colors.windTrue}]}
           onPress={() => setWindMode('true')}>
-          <Text style={[
-            styles.windToggleTxt,
-            {color: windMode === 'true' ? colors.background : colors.textMuted},
-          ]}>
-            TRUE
+          <Text style={[styles.windToggleTxt, {color: windMode === 'true' ? colors.background : colors.textMuted}]}>
+            TWA
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* AVG / MAX GUST compact stats */}
       <View style={[styles.windStatsRow, {borderTopColor: colors.border}]}>
         <View style={styles.windStatBlock}>
           <Text style={[styles.windStatLabel, {color: colors.textMuted}]}>AVG 1H</Text>
@@ -197,7 +192,7 @@ function WindPanel({colors, roseSize}: {colors: any; roseSize: number}) {
         </View>
         <View style={[styles.windStatDivider, {backgroundColor: colors.border}]} />
         <View style={styles.windStatBlock}>
-          <Text style={[styles.windStatLabel, {color: colors.textMuted}]}>MAX GUST</Text>
+          <Text style={[styles.windStatLabel, {color: colors.textMuted}]}>GUST</Text>
           <Text style={[styles.windStatValue, {color: colors.warning}]}>
             {maxGust !== null ? maxGust.toFixed(1) : '---'}
             <Text style={[styles.windStatUnit, {color: colors.textMuted}]}> kn</Text>
@@ -230,39 +225,37 @@ function NavigationPanel({colors, compassSize, speedUnit}: {
   const speedUnitLabel = speedUnit === 'kmh' ? 'km/h' : speedUnit;
 
   return (
-    <View style={[styles.panel, {backgroundColor: colors.surface, borderRightColor: colors.border}]}>
-      <PanelHeader title="NAVIGATION" colors={colors} />
+    <View style={[styles.panel, {backgroundColor: colors.surface}]}>
+      <PanelHeader title="NAVIGATION" accent={colors.success} colors={colors} />
 
       <View style={styles.centeredBlock}>
         <CompassRose heading={headingTrue?.value ?? 0} size={compassSize} />
       </View>
 
-      {/* Headings */}
       <View style={styles.navRow}>
         <BigValue
-          label="HDG (T)"
+          label="HDG"
           value={headingTrue ? String(Math.round(headingTrue.value)).padStart(3, '0') + '°' : null}
           color={colors.text}
-          valueSize={56}
+          valueSize={48}
           colors={colors}
         />
         <BigValue
           label="COG"
           value={gps ? String(Math.round(gps.value.cog)).padStart(3, '0') + '°' : null}
           color={colors.textSecondary}
-          valueSize={56}
+          valueSize={48}
           colors={colors}
         />
       </View>
 
-      {/* Speed */}
       <View style={styles.navRow}>
         <BigValue
           label="STW"
           value={speedDisplay}
           unit={speedUnitLabel}
           color={colors.accent}
-          valueSize={56}
+          valueSize={48}
           colors={colors}
         />
         <BigValue
@@ -270,7 +263,7 @@ function NavigationPanel({colors, compassSize, speedUnit}: {
           value={gps ? gps.value.sog.toFixed(1) : null}
           unit="kn"
           color={colors.accent}
-          valueSize={56}
+          valueSize={48}
           colors={colors}
         />
       </View>
@@ -294,23 +287,36 @@ function DepthPanel({colors, depthUnit}: {colors: any; depthUnit: string}) {
   }, [depth, depthUnit]);
   const depthUnitLabel = depthUnit === 'fathoms' ? 'fm' : depthUnit;
 
-  // Simple shallow-water colour hint: <3m red, <10m amber, else white
   const depthColor = useMemo(() => {
     if (!depth) {return colors.text;}
-    const m = depth.value;
-    if (m < 3) {return colors.danger;}
-    if (m < 10) {return colors.warning;}
+    if (depth.value < 3) {return colors.danger;}
+    if (depth.value < 10) {return colors.warning;}
     return colors.text;
   }, [depth, colors]);
 
-  return (
-    <View style={[styles.panel, styles.depthPanel, {backgroundColor: colors.surface}]}>
-      <PanelHeader title="DEPTH" colors={colors} />
+  const alertBorder = useMemo(() => {
+    if (!depth) {return 'transparent';}
+    if (depth.value < 3) {return colors.danger;}
+    if (depth.value < 10) {return colors.warning;}
+    return 'transparent';
+  }, [depth, colors]);
 
+  return (
+    <View style={[styles.panel, {backgroundColor: colors.surface, borderWidth: 2, borderColor: alertBorder}]}>
+      <PanelHeader title="DEPTH" accent={colors.warning} colors={colors} />
       <View style={styles.depthContent}>
-        <Text style={[styles.depthValue, {color: depthColor}]} numberOfLines={1} adjustsFontSizeToFit>
-          {depthDisplay ?? '---'}
-        </Text>
+        {depthDisplay ? (
+          <View style={styles.depthValueRow}>
+            <Text style={[styles.depthValue, {color: depthColor}]} numberOfLines={1} adjustsFontSizeToFit>
+              {depthDisplay.split('.')[0]}
+            </Text>
+            <Text style={[styles.depthDecimal, {color: depthColor}]}>
+              {'.' + depthDisplay.split('.')[1]}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.depthValue, {color: depthColor}]}>---</Text>
+        )}
         <Text style={[styles.depthUnit, {color: colors.textMuted}]}>
           {depthUnitLabel}
         </Text>
@@ -331,21 +337,24 @@ export function DashboardScreen() {
   const depthUnit = useBoatStore(s => s.settings.depthUnit);
   const speedUnit = useBoatStore(s => s.settings.speedUnit);
 
-  const panelWidth = isLandscape ? width / 4 : width;
+  const cellW = isLandscape ? Math.floor(width / 4) : Math.floor(width / 2);
+
   const roseSize = isLandscape
-    ? Math.min(panelWidth - 32, height * 0.60)
-    : Math.min(width * 0.85, 480);
+    ? Math.min(cellW - 32, height * 0.58)
+    : Math.min(cellW - 20, 210);
+
   const compassSize = isLandscape
-    ? Math.min(height * 0.34, 210)
-    : Math.min(width * 0.55, 220);
+    ? Math.min(height * 0.33, 200)
+    : Math.min(cellW - 28, 175);
+
   const rudderSize = isLandscape
-    ? Math.min(panelWidth - 48, 220)
-    : Math.min(width - 48, 300);
+    ? Math.min(cellW - 40, 210)
+    : Math.min(cellW - 24, 130);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
       {/* Status bar */}
-      <View style={[styles.statusBar, {borderBottomColor: colors.border}]}>
+      <View style={[styles.statusBar, {borderBottomColor: colors.border, backgroundColor: colors.surface}]}>
         <ConnectionStatus label="NMEA" status={nmeaStatus} />
         <ConnectionStatus label="Pypilot" status={pypilotStatus} />
       </View>
@@ -358,12 +367,16 @@ export function DashboardScreen() {
           <DepthPanel colors={colors} depthUnit={depthUnit} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.portraitContent}>
-          <AutopilotPanel colors={colors} rudderSize={rudderSize} />
-          <WindPanel colors={colors} roseSize={roseSize} />
-          <NavigationPanel colors={colors} compassSize={compassSize} speedUnit={speedUnit} />
-          <DepthPanel colors={colors} depthUnit={depthUnit} />
-        </ScrollView>
+        <View style={styles.portraitGrid}>
+          <View style={styles.gridRow}>
+            <WindPanel colors={colors} roseSize={roseSize} />
+            <NavigationPanel colors={colors} compassSize={compassSize} speedUnit={speedUnit} />
+          </View>
+          <View style={styles.gridRow}>
+            <AutopilotPanel colors={colors} rudderSize={rudderSize} compact />
+            <DepthPanel colors={colors} depthUnit={depthUnit} />
+          </View>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -377,41 +390,55 @@ const styles = StyleSheet.create({
   statusBar: {
     flexDirection: 'row',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderBottomWidth: 1,
   },
 
-  landscapeContent: {flex: 1, flexDirection: 'row'},
-  portraitContent: {gap: 0},
+  landscapeContent: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 4,
+    gap: 4,
+  },
+  portraitGrid: {
+    flex: 1,
+    padding: 4,
+    gap: 4,
+  },
+  gridRow: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+  },
 
-  // Panel
+  // Panel card
   panel: {
     flex: 1,
-    borderRightWidth: 1,
+    borderRadius: 10,
     overflow: 'hidden',
+    elevation: 3,
   },
-  depthPanel: {
-    // No right border on last panel
-    borderRightWidth: 0,
+  panelAccentBar: {
+    height: 3,
   },
   panelHeader: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderBottomWidth: 1,
   },
   panelTitle: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 2.5,
+    letterSpacing: 3,
   },
 
   centeredBlock: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
 
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
@@ -423,11 +450,11 @@ const styles = StyleSheet.create({
   bigValueBlock: {
     alignItems: 'center',
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 4,
   },
   bigValueLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -443,59 +470,59 @@ const styles = StyleSheet.create({
   },
   bigValueUnit: {
     fontWeight: '600',
-    marginLeft: 4,
-    marginBottom: 6,
+    marginLeft: 3,
+    marginBottom: 5,
   },
 
   // Autopilot
-  apStatusRow: {
+  apStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginVertical: 10,
+    gap: 8,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignSelf: 'center',
   },
-  apDot: {width: 14, height: 14, borderRadius: 7},
-  apStatusText: {fontSize: 24, fontWeight: '700', letterSpacing: 1},
-  apMode: {fontSize: 16, textAlign: 'center', marginBottom: 4, fontWeight: '500'},
+  apDot: {width: 10, height: 10, borderRadius: 5},
+  apStatusText: {fontSize: 16, fontWeight: '700', letterSpacing: 1.5},
+  apMode: {fontSize: 13, textAlign: 'center', marginBottom: 2, fontWeight: '500', letterSpacing: 1},
 
   imuRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   imuCell: {alignItems: 'center'},
-  imuValue: {fontSize: 26, fontWeight: '700', fontVariant: ['tabular-nums']},
+  imuValue: {fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums']},
 
   // Wind toggle
-  windPanelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   windToggleRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   windToggleBtn: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingVertical: 5,
     borderRadius: 14,
   },
   windToggleTxt: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
 
-  // Wind quick stats
+  // Wind stats
   windStatsRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 8,
   },
   windStatBlock: {
@@ -507,19 +534,19 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   windStatLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   windStatValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
   windStatUnit: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
 
@@ -534,18 +561,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   depthValue: {
-    fontSize: 120,
+    fontSize: 96,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
   },
   depthUnit: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '600',
-    marginTop: -8,
+    marginTop: -4,
     letterSpacing: 2,
   },
 });

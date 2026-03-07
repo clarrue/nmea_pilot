@@ -21,7 +21,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({
   const setTheme = useBoatStore(s => s.setTheme);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === 'day' ? 'night' : 'day');
+    setTheme(theme === 'day' ? 'light' : theme === 'light' ? 'night' : 'day');
   }, [theme, setTheme]);
 
   const value = useMemo<ThemeContextValue>(

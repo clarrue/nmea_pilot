@@ -9,6 +9,7 @@ interface InstrumentCardProps {
   unit?: string;
   updatedAt?: number | null;
   compact?: boolean;
+  accentColor?: string; // optional label color override
   children?: React.ReactNode; // For embedding SVG instruments
 }
 
@@ -18,6 +19,7 @@ function InstrumentCardInner({
   unit,
   updatedAt,
   compact = false,
+  accentColor,
   children,
 }: InstrumentCardProps) {
   const {colors} = useTheme();
@@ -40,13 +42,13 @@ function InstrumentCardInner({
       style={[
         styles.card,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
         },
         compact && styles.compact,
       ]}>
       <Text
-        style={[styles.label, {color: colors.textSecondary}]}
+        style={[styles.label, {color: accentColor ?? colors.textSecondary}]}
         numberOfLines={1}>
         {label}
       </Text>
@@ -84,25 +86,26 @@ function InstrumentCardInner({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 10,
+    padding: 12,
     margin: 4,
-    minWidth: 80,
+    minWidth: 84,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    elevation: 2,
   },
   compact: {
     padding: 6,
     margin: 2,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
   valueRow: {
     flexDirection: 'row',

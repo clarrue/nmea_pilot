@@ -1,4 +1,4 @@
-export type ThemeMode = 'day' | 'night';
+export type ThemeMode = 'day' | 'light' | 'night';
 
 export interface ColorPalette {
   background: string;
@@ -32,30 +32,58 @@ export interface ColorPalette {
 }
 
 export const dayColors: ColorPalette = {
-  background: '#0A1628',
-  surface: '#112240',
-  surfaceElevated: '#1A3355',
-  border: '#2A4A7F',
-  text: '#FFFFFF',
-  textSecondary: '#A8C4E0',
-  textMuted: '#5A7FA8',
+  background: '#060C18',
+  surface: '#0A1628',
+  surfaceElevated: '#112240',
+  border: '#1A3260',
+  text: '#E8F3FF',
+  textSecondary: '#8AAFD0',
+  textMuted: '#3D6080',
   accent: '#00D4FF',
   accentSecondary: '#0099CC',
-  warning: '#FF8C00',
-  danger: '#FF4444',
-  success: '#00DD66',
-  staleWarn: '#FF8C00',
-  staleHide: '#5A7FA8',
-  tabBar: '#0D1F3D',
+  warning: '#FF9500',
+  danger: '#FF3B30',
+  success: '#30D158',
+  staleWarn: '#FF9500',
+  staleHide: '#3D6080',
+  tabBar: '#060C18',
   tabBarActive: '#00D4FF',
-  tabBarInactive: '#5A7FA8',
+  tabBarInactive: '#3D6080',
   windApparent: '#00D4FF',
-  windTrue: '#FF8C35',
-  compassNeedle: '#FF4444',
+  windTrue: '#FF9A3C',
+  compassNeedle: '#FF3B30',
   rudderBar: '#00D4FF',
+  buttonPrimary: '#0A5FD6',
+  buttonDanger: '#FF3B30',
+  buttonNeutral: '#1A3260',
+  buttonText: '#FFFFFF',
+};
+
+export const lightColors: ColorPalette = {
+  background: '#F5F7FA',
+  surface: '#FFFFFF',
+  surfaceElevated: '#EEF2F7',
+  border: '#C8D6E5',
+  text: '#0A1628',
+  textSecondary: '#2D5080',
+  textMuted: '#7A99BB',
+  accent: '#0066CC',
+  accentSecondary: '#0050A0',
+  warning: '#D97000',
+  danger: '#CC2200',
+  success: '#1A8C3A',
+  staleWarn: '#D97000',
+  staleHide: '#7A99BB',
+  tabBar: '#FFFFFF',
+  tabBarActive: '#0066CC',
+  tabBarInactive: '#7A99BB',
+  windApparent: '#0066CC',
+  windTrue: '#CC5500',
+  compassNeedle: '#CC2200',
+  rudderBar: '#0066CC',
   buttonPrimary: '#0066CC',
-  buttonDanger: '#FF4444',
-  buttonNeutral: '#2A4A7F',
+  buttonDanger: '#CC2200',
+  buttonNeutral: '#C8D6E5',
   buttonText: '#FFFFFF',
 };
 
@@ -89,5 +117,6 @@ export const nightColors: ColorPalette = {
 
 export const palettes: Record<ThemeMode, ColorPalette> = {
   day: dayColors,
+  light: lightColors,
   night: nightColors,
 };

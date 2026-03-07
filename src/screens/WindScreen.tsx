@@ -10,7 +10,6 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {WindRose} from '../components/WindRose';
 import {WindHistoryChart} from '../components/WindHistoryChart';
-import {InstrumentCard} from '../components/InstrumentCard';
 import {useTheme} from '../theme/ThemeContext';
 import {useBoatStore} from '../store/useBoatStore';
 
@@ -19,10 +18,25 @@ export function WindScreen() {
   const {width, height} = useWindowDimensions();
   const windApparent = useBoatStore(s => s.windApparent);
   const windTrue = useBoatStore(s => s.windTrue);
+  const setWindApparent = useBoatStore(s => s.setWindApparent);
+  const setWindTrue = useBoatStore(s => s.setWindTrue);
+  const setDepth = useBoatStore(s => s.setDepth);
 
   const [windMode, setWindMode] = useState<'apparent' | 'true'>('apparent');
   const [showRose, setShowRose] = useState(true);
   const [showChart, setShowChart] = useState(true);
+  const [demo, setDemo] = useState(false);
+
+  const toggleDemo = () => {
+    if (!demo) {
+      setWindApparent({angle: 42, speed: 14.3});
+      setWindTrue({angle: 55, speed: 11.7});
+      setDepth(8.4);
+    } else {
+      // clear by setting stale values — easiest is to just leave them, user can reload
+    }
+    setDemo(v => !v);
+  };
 
   // Track actual rendered chart panel width for the SVG
   const [chartPanelWidth, setChartPanelWidth] = useState(width);
@@ -61,6 +75,15 @@ export function WindScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Demo toggle */}
+        <TouchableOpacity
+          style={[styles.panelBtn, {borderColor: colors.border}, demo && {backgroundColor: colors.accent, borderColor: colors.accent}]}
+          onPress={toggleDemo}>
+          <Text style={[styles.panelBtnTxt, {color: demo ? colors.background : colors.textMuted}]}>
+            DEMO
+          </Text>
+        </TouchableOpacity>
 
         {/* Panel visibility toggles */}
         <View style={styles.panelToggle}>
@@ -107,42 +130,8 @@ export function WindScreen() {
                 angle={activeWind?.value.angle}
                 speed={activeWind?.value.speed}
                 size={roseSize}
-              />
-            </View>
-
-            {/* Instrument cards */}
-            <View style={styles.cardsRow}>
-              <InstrumentCard
-                label="AWS"
-                value={windApparent ? windApparent.value.speed.toFixed(1) : null}
-                unit="kn"
-                updatedAt={windApparent?.updatedAt}
-              />
-              <InstrumentCard
-                label="AWA"
-                value={
-                  windApparent
-                    ? `${windApparent.value.angle < 0 ? '' : '+'}${windApparent.value.angle.toFixed(0)}`
-                    : null
-                }
-                unit="°"
-                updatedAt={windApparent?.updatedAt}
-              />
-              <InstrumentCard
-                label="TWS"
-                value={windTrue ? windTrue.value.speed.toFixed(1) : null}
-                unit="kn"
-                updatedAt={windTrue?.updatedAt}
-              />
-              <InstrumentCard
-                label="TWA"
-                value={
-                  windTrue
-                    ? `${windTrue.value.angle < 0 ? '' : '+'}${windTrue.value.angle.toFixed(0)}`
-                    : null
-                }
-                unit="°"
-                updatedAt={windTrue?.updatedAt}
+                windApparent={windApparent?.value ?? null}
+                windTrue={windTrue?.value ?? null}
               />
             </View>
           </ScrollView>
@@ -231,14 +220,6 @@ const styles = StyleSheet.create({
   roseCenter: {
     alignItems: 'center',
   },
-  cardsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    paddingTop: 12,
-    gap: 4,
-  },
-
   // Chart panel
   chartPanel: {
     flex: 1,

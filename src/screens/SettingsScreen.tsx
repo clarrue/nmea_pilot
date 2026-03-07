@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -100,7 +99,8 @@ function HostPortInput({
 }
 
 export function SettingsScreen() {
-  const {colors, mode, toggleTheme} = useTheme();
+  const {colors, mode} = useTheme();
+  const setTheme = useBoatStore(s => s.setTheme);
   const settings = useBoatStore(s => s.settings);
   const setNmeaConfig = useBoatStore(s => s.setNmeaConfig);
   const setPypilotConfig = useBoatStore(s => s.setPypilotConfig);
@@ -208,13 +208,25 @@ export function SettingsScreen() {
         {/* Theme */}
         <SectionHeader title="Display Theme" />
         <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border}]}>
-          <SettingRow label="Night Mode">
-            <Switch
-              value={mode === 'night'}
-              onValueChange={() => { toggleTheme(); saveSettings(); }}
-              trackColor={{false: colors.border, true: colors.accent}}
-              thumbColor={colors.buttonText}
-            />
+          <SettingRow label="Theme">
+            {(['day', 'light', 'night'] as const).map(t => (
+              <Pressable
+                key={t}
+                onPress={() => { setTheme(t); saveSettings(); }}
+                style={[
+                  styles.unitBtn,
+                  mode === t && {backgroundColor: colors.accent},
+                  {borderColor: colors.border},
+                ]}>
+                <Text style={{
+                  color: mode === t ? colors.buttonText : colors.text,
+                  fontSize: 13,
+                  fontWeight: '600',
+                }}>
+                  {t.toUpperCase()}
+                </Text>
+              </Pressable>
+            ))}
           </SettingRow>
         </View>
       </ScrollView>
