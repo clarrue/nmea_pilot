@@ -38,8 +38,8 @@ export function WindScreen() {
     setDemo(v => !v);
   };
 
-  // Track actual rendered chart panel width for the SVG
   const [chartPanelWidth, setChartPanelWidth] = useState(width);
+  const [rosePanelHeight, setRosePanelHeight] = useState(height * 0.5);
 
   const activeWind = windMode === 'apparent' ? windApparent : windTrue;
   const bothVisible = showRose && showChart;
@@ -48,9 +48,7 @@ export function WindScreen() {
   const toggleRose = () => { if (showChart) { setShowRose(v => !v); } };
   const toggleChart = () => { if (showRose) { setShowChart(v => !v); } };
 
-  // Rose size: fit inside the rose panel
-  const rosePanelWidth = showRose ? (bothVisible ? width / 2 : width) : 0;
-  const roseSize = Math.min(rosePanelWidth - 40, height * 0.60);
+  const roseSize = Math.min(width - 40, rosePanelHeight - 24);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
@@ -112,18 +110,19 @@ export function WindScreen() {
         </View>
       </View>
 
-      {/* ── Panels row ──────────────────────────────────────────────────── */}
-      <View style={styles.panelsRow}>
+      {/* ── Panels column ───────────────────────────────────────────────── */}
+      <View style={styles.panelsColumn}>
 
-        {/* Left: Rose panel */}
+        {/* Top: Rose panel */}
         {showRose && (
           <ScrollView
             style={[
               styles.rosePanel,
-              bothVisible && {borderRightWidth: 1, borderRightColor: colors.border},
+              bothVisible && {borderBottomWidth: 1, borderBottomColor: colors.border},
             ]}
             contentContainerStyle={styles.rosePanelContent}
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+            onLayout={e => setRosePanelHeight(e.nativeEvent.layout.height)}>
 
             <View style={styles.roseCenter}>
               <WindRose
@@ -203,9 +202,9 @@ const styles = StyleSheet.create({
   },
 
   // Panels
-  panelsRow: {
+  panelsColumn: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
   },
 
   // Rose panel
