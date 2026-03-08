@@ -106,6 +106,7 @@ export function SettingsScreen() {
   const setPypilotConfig = useBoatStore(s => s.setPypilotConfig);
   const setDepthUnit = useBoatStore(s => s.setDepthUnit);
   const setSpeedUnit = useBoatStore(s => s.setSpeedUnit);
+  const setVisiblePanels = useBoatStore(s => s.setVisiblePanels);
   const saveSettings = useBoatStore(s => s.saveSettings);
   const nmeaStatus = useBoatStore(s => s.nmeaStatus);
   const pypilotStatus = useBoatStore(s => s.pypilotStatus);
@@ -203,6 +204,29 @@ export function SettingsScreen() {
               </Pressable>
             ))}
           </SettingRow>
+        </View>
+
+        {/* Dashboard panels */}
+        <SectionHeader title="Dashboard Panels" />
+        <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border}]}>
+          {(['wind', 'navigation', 'autopilot', 'depth', 'pressure'] as const).map(panel => {
+            const active = settings.visiblePanels[panel];
+            return (
+              <SettingRow key={panel} label={panel.charAt(0).toUpperCase() + panel.slice(1)}>
+                <Pressable
+                  onPress={() => { setVisiblePanels({[panel]: !active}); saveSettings(); }}
+                  style={[
+                    styles.unitBtn,
+                    active && {backgroundColor: colors.accent},
+                    {borderColor: colors.border},
+                  ]}>
+                  <Text style={{color: active ? colors.buttonText : colors.text, fontSize: 13, fontWeight: '600'}}>
+                    {active ? 'ON' : 'OFF'}
+                  </Text>
+                </Pressable>
+              </SettingRow>
+            );
+          })}
         </View>
 
         {/* Theme */}

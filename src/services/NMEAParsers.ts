@@ -238,6 +238,62 @@ export function parseRMC(sentence: string): GpsData | null {
 }
 
 /**
+ * Parse MDA (Meteorological Composite) sentence for barometric pressure.
+ *
+ * Format: $--MDA,x.x,I,x.x,B,...*hh
+ * Field [1]/[2] = pressure in inches of mercury / 'I'
+ * Field [3]/[4] = pressure in bars / 'B'
+ *
+ * Returns pressure in hPa, or null.
+ */
+export function parseMDA(sentence: string): number | null {
+  if (!validateChecksum(sentence)) {
+    return null;
+  }
+  const fields = parseFields(sentence);
+  // Prefer bars field [3]
+  if (fields[3] && fields[4] === 'B') {
+    const bars = parseFloat(fields[3]);
+    if (!isNaN(bars) && bars > 0.5 && bars < 1.1) {
+      return bars * 1000; // bars → hPa
+    }
+  }
+  // Fallback: inches of mercury field [1]
+  if (fields[1] && fields[2] === 'I') {
+    const inHg = parseFloat(fields[1]);
+    if (!isNaN(inHg) && inHg > 0) {
+      return inHg * 33.8639; // inHg → hPa
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse XDR (Transducer Measurement) sentence for barometric pressure.
+ *
+ * Fields come in groups of 4: type, value, unit, name
+ * For pressure: type='P', unit='B' (bar), 'P' (pascal), or 'M' (mbar)
+ *
+ * Returns pressure in hPa, or null.
+ */
+export function parseXDR(sentence: string): number | null {
+  if (!validateChecksum(sentence)) {
+    return null;
+  }
+  const fields = parseFields(sentence);
+  for (let i = 1; i + 2 < fields.length; i += 4) {
+    if (fields[i] !== 'P') {continue;}
+    const val = parseFloat(fields[i + 1]);
+    const unit = fields[i + 2];
+    if (isNaN(val) || val <= 0) {continue;}
+    if (unit === 'B') {return val * 1000;}  // bar → hPa
+    if (unit === 'P') {return val / 100;}   // Pa → hPa
+    if (unit === 'M') {return val;}         // mbar = hPa
+  }
+  return null;
+}
+
+/**
  * Identify sentence type from the 3-character mnemonic (chars 3-5 of sentence).
  * E.g., "$IIMWV,..." → "MWV"
  */

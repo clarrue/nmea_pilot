@@ -6,6 +6,8 @@ import {
   parseVHW,
   parseMWV,
   parseRMC,
+  parseMDA,
+  parseXDR,
 } from './NMEAParsers';
 import {useBoatStore} from '../store/useBoatStore';
 
@@ -147,6 +149,20 @@ class NMEAServiceClass {
         const rmc = parseRMC(sentence);
         if (rmc) {
           store.setGps(rmc);
+        }
+        break;
+      }
+      case 'MDA': {
+        const hPa = parseMDA(sentence);
+        if (hPa !== null) {
+          store.setPressure(hPa);
+        }
+        break;
+      }
+      case 'XDR': {
+        const hPa = parseXDR(sentence);
+        if (hPa !== null) {
+          store.setPressure(hPa);
         }
         break;
       }

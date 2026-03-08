@@ -14,6 +14,14 @@ export interface StalenessConfig {
   hideAfterMs: number;  // default 15000
 }
 
+export interface VisiblePanels {
+  wind: boolean;
+  navigation: boolean;
+  autopilot: boolean;
+  depth: boolean;
+  pressure: boolean;
+}
+
 export interface Settings {
   nmea: ConnectionConfig;
   pypilot: ConnectionConfig;
@@ -21,6 +29,7 @@ export interface Settings {
   depthUnit: DepthUnit;
   speedUnit: SpeedUnit;
   staleness: StalenessConfig;
+  visiblePanels: VisiblePanels;
 }
 
 const STORAGE_KEY = '@nmea_settings';
@@ -32,6 +41,7 @@ const DEFAULT_SETTINGS: Settings = {
   depthUnit: 'm',
   speedUnit: 'kn',
   staleness: {warnAfterMs: 5000, hideAfterMs: 15000},
+  visiblePanels: {wind: true, navigation: true, autopilot: true, depth: true, pressure: true},
 };
 
 export interface SettingsSlice {
@@ -43,6 +53,7 @@ export interface SettingsSlice {
   setDepthUnit: (unit: DepthUnit) => void;
   setSpeedUnit: (unit: SpeedUnit) => void;
   setStaleness: (config: StalenessConfig) => void;
+  setVisiblePanels: (panels: Partial<VisiblePanels>) => void;
   loadSettings: () => Promise<void>;
   saveSettings: () => Promise<void>;
 }
@@ -83,6 +94,14 @@ export const createSettingsSlice = (
       settings: {...state.settings, staleness: config},
     })),
 
+  setVisiblePanels: (panels: Partial<VisiblePanels>) =>
+    set(state => ({
+      settings: {
+        ...state.settings,
+        visiblePanels: {...state.settings.visiblePanels, ...panels},
+      },
+    })),
+
   loadSettings: async () => {
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEY);
@@ -95,6 +114,7 @@ export const createSettingsSlice = (
             nmea: {...DEFAULT_SETTINGS.nmea, ...(saved.nmea ?? {})},
             pypilot: {...DEFAULT_SETTINGS.pypilot, ...(saved.pypilot ?? {})},
             staleness: {...DEFAULT_SETTINGS.staleness, ...(saved.staleness ?? {})},
+            visiblePanels: {...DEFAULT_SETTINGS.visiblePanels, ...(saved.visiblePanels ?? {})},
           },
         }));
       }

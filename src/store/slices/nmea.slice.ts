@@ -23,6 +23,7 @@ export interface NmeaSlice {
   windApparent: StampedValue<WindData> | null;
   windTrue: StampedValue<WindData> | null;
   gps: StampedValue<GpsData> | null;
+  pressure: StampedValue<number> | null;    // hPa
 
   setDepth: (meters: number) => void;
   setWaterSpeed: (knots: number) => void;
@@ -31,6 +32,7 @@ export interface NmeaSlice {
   setWindApparent: (wind: WindData) => void;
   setWindTrue: (wind: WindData) => void;
   setGps: (gps: GpsData) => void;
+  setPressure: (hPa: number) => void;
 }
 
 export const createNmeaSlice = (
@@ -43,6 +45,7 @@ export const createNmeaSlice = (
   windApparent: null,
   windTrue: null,
   gps: null,
+  pressure: null,
 
   setDepth: (meters: number) =>
     set(() => ({depth: {value: meters, updatedAt: Date.now()}})),
@@ -64,4 +67,7 @@ export const createNmeaSlice = (
 
   setGps: (gps: GpsData) =>
     set(() => ({gps: {value: gps, updatedAt: Date.now()}})),
+
+  setPressure: (hPa: number) =>
+    set(() => ({pressure: {value: hPa, updatedAt: Date.now()}})),
 });

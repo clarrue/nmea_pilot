@@ -5,6 +5,7 @@ import {WindRose} from '../components/WindRose';
 import {CompassRose} from '../components/CompassRose';
 import {RudderIndicator} from '../components/RudderIndicator';
 import {ConnectionStatus} from '../components/ConnectionStatus';
+import {PressureHistoryChart} from '../components/PressureHistoryChart';
 import {useTheme} from '../theme/ThemeContext';
 import {useBoatStore} from '../store/useBoatStore';
 
@@ -325,31 +326,101 @@ function DepthPanel({colors, depthUnit}: {colors: any; depthUnit: string}) {
   );
 }
 
+// ─── Pressure panel ───────────────────────────────────────────────────────────
+
+function PressurePanel({colors, width}: {colors: any; width: number}) {
+  const pressure = useBoatStore(s => s.pressure);
+  const pressureHistory = useBoatStore(s => s.pressureHistory);
+
+  // Trend: compare last record vs record from ~3h ago (hPa/h)
+  const trend = useMemo(() => {
+    if (pressureHistory.length < 2) {return null;}
+    const now = pressureHistory[pressureHistory.length - 1];
+    const cutoff = now.t - 3 * 3_600_000;
+    const old = pressureHistory.find(r => r.t >= cutoff) ?? pressureHistory[0];
+    const deltahPa = now.hPa - old.hPa;
+    const deltaH = (now.t - old.t) / 3_600_000;
+    if (deltaH < 0.1) {return null;}
+    return deltahPa / deltaH; // hPa/h
+  }, [pressureHistory]);
+
+  const trendLabel = trend === null ? null
+    : trend > 1.5  ? '↑↑ Rising fast'
+    : trend > 0.5  ? '↑ Rising'
+    : trend < -1.5 ? '↓↓ Falling fast'
+    : trend < -0.5 ? '↓ Falling'
+    : '→ Steady';
+
+  const trendColor = trend === null ? colors.textMuted
+    : Math.abs(trend) > 1.5 ? colors.warning
+    : colors.textSecondary;
+
+  return (
+    <View style={[styles.panel, {backgroundColor: colors.surface}]}>
+      <PanelHeader title="PRESSURE" accent={colors.accent} colors={colors} />
+      <View style={styles.pressureContent}>
+        <View style={styles.pressureValueRow}>
+          <Text style={[styles.pressureValue, {color: colors.text}]} numberOfLines={1} adjustsFontSizeToFit>
+            {pressure ? pressure.value.toFixed(0) : '---'}
+          </Text>
+          <Text style={[styles.pressureUnit, {color: colors.textMuted}]}>hPa</Text>
+        </View>
+        {trendLabel && (
+          <Text style={[styles.pressureTrend, {color: trendColor}]}>{trendLabel}</Text>
+        )}
+      </View>
+      <PressureHistoryChart width={width} />
+    </View>
+  );
+}
+
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
 export function DashboardScreen() {
   const {colors} = useTheme();
   const {width, height} = useWindowDimensions();
-  const isLandscape = width > height;
 
   const nmeaStatus = useBoatStore(s => s.nmeaStatus);
   const pypilotStatus = useBoatStore(s => s.pypilotStatus);
   const depthUnit = useBoatStore(s => s.settings.depthUnit);
   const speedUnit = useBoatStore(s => s.settings.speedUnit);
+  const visiblePanels = useBoatStore(s => s.settings.visiblePanels);
 
-  const cellW = isLandscape ? Math.floor(width / 4) : Math.floor(width / 2);
+  const cellW = Math.floor(width / 2);
 
-  const roseSize = isLandscape
-    ? Math.min(cellW - 32, height * 0.58)
-    : Math.min(cellW - 20, 210);
+  // Compute row count first so sizes adapt to available height per row
+  const panelCount = [visiblePanels.wind, visiblePanels.navigation, visiblePanels.autopilot, visiblePanels.depth, visiblePanels.pressure].filter(Boolean).length;
+  const rowCount = Math.max(1, Math.ceil(panelCount / 2));
+  const cellH = Math.floor((height - 60) / rowCount); // 60 ≈ status bar
 
-  const compassSize = isLandscape
-    ? Math.min(height * 0.33, 200)
-    : Math.min(cellW - 28, 175);
+  // Leave room for panel header + labels + stats below the graphic
+  const roseSize = Math.min(cellW - 24, Math.floor(cellH * 0.55), 400);
+  const compassSize = Math.min(cellW - 28, Math.floor(cellH * 0.45), 350);
+  const rudderSize = Math.min(cellW - 24, Math.floor(cellH * 0.50), 300);
 
-  const rudderSize = isLandscape
-    ? Math.min(cellW - 40, 210)
-    : Math.min(cellW - 24, 130);
+  // Build ordered list of visible panel elements
+  const panels: React.ReactElement[] = [];
+  if (visiblePanels.wind) {
+    panels.push(<WindPanel key="wind" colors={colors} roseSize={roseSize} />);
+  }
+  if (visiblePanels.navigation) {
+    panels.push(<NavigationPanel key="navigation" colors={colors} compassSize={compassSize} speedUnit={speedUnit} />);
+  }
+  if (visiblePanels.autopilot) {
+    panels.push(<AutopilotPanel key="autopilot" colors={colors} rudderSize={rudderSize} compact />);
+  }
+  if (visiblePanels.depth) {
+    panels.push(<DepthPanel key="depth" colors={colors} depthUnit={depthUnit} />);
+  }
+  if (visiblePanels.pressure) {
+    panels.push(<PressurePanel key="pressure" colors={colors} width={cellW - 8} />);
+  }
+
+  // Group into rows of 2
+  const rows: React.ReactElement[][] = [];
+  for (let i = 0; i < panels.length; i += 2) {
+    rows.push(panels.slice(i, i + 2));
+  }
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
@@ -359,25 +430,21 @@ export function DashboardScreen() {
         <ConnectionStatus label="Pypilot" status={pypilotStatus} />
       </View>
 
-      {isLandscape ? (
-        <View style={styles.landscapeContent}>
-          <AutopilotPanel colors={colors} rudderSize={rudderSize} />
-          <WindPanel colors={colors} roseSize={roseSize} />
-          <NavigationPanel colors={colors} compassSize={compassSize} speedUnit={speedUnit} />
-          <DepthPanel colors={colors} depthUnit={depthUnit} />
-        </View>
-      ) : (
-        <View style={styles.portraitGrid}>
-          <View style={styles.gridRow}>
-            <WindPanel colors={colors} roseSize={roseSize} />
-            <NavigationPanel colors={colors} compassSize={compassSize} speedUnit={speedUnit} />
+      <View style={styles.portraitGrid}>
+        {rows.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyText, {color: colors.textMuted}]}>
+              No panels selected.{'\n'}Enable panels in Settings.
+            </Text>
           </View>
-          <View style={styles.gridRow}>
-            <AutopilotPanel colors={colors} rudderSize={rudderSize} compact />
-            <DepthPanel colors={colors} depthUnit={depthUnit} />
-          </View>
-        </View>
-      )}
+        ) : (
+          rows.map((row, i) => (
+            <View key={i} style={styles.gridRow}>
+              {row}
+            </View>
+          ))
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -394,16 +461,48 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
 
-  landscapeContent: {
-    flex: 1,
-    flexDirection: 'row',
-    padding: 4,
-    gap: 4,
-  },
   portraitGrid: {
     flex: 1,
     padding: 4,
     gap: 4,
+  },
+  // Pressure
+  pressureContent: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  pressureValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  pressureValue: {
+    fontSize: 64,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  pressureUnit: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  pressureTrend: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   gridRow: {
     flex: 1,
@@ -563,11 +662,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
+  depthValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
   depthValue: {
     fontSize: 96,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
+  },
+  depthDecimal: {
+    fontSize: 48,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   depthUnit: {
     fontSize: 26,
