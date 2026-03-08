@@ -2,7 +2,6 @@ import React, {useMemo, useState} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View, useWindowDimensions} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {WindRose} from '../components/WindRose';
-import {CompassRose} from '../components/CompassRose';
 import {RudderIndicator} from '../components/RudderIndicator';
 import {ConnectionStatus} from '../components/ConnectionStatus';
 import {PressureHistoryChart} from '../components/PressureHistoryChart';
@@ -135,138 +134,79 @@ function AutopilotPanel({colors, rudderSize, compact = false}: {
 
 function WindPanel({colors, roseSize}: {colors: any; roseSize: number}) {
   const windApparent = useBoatStore(s => s.windApparent);
-  const windTrue = useBoatStore(s => s.windTrue);
-  const windHistory = useBoatStore(s => s.windHistory);
-  const [windMode, setWindMode] = useState<'apparent' | 'true'>('apparent');
-
-  const activeWind = windMode === 'apparent' ? windApparent : windTrue;
-  const accentColor = windMode === 'apparent' ? colors.windApparent : colors.windTrue;
-
-  const {avgSpeed, maxGust} = useMemo(() => {
-    const cutoff = Date.now() - 3_600_000;
-    const recs = windHistory.filter(r => r.t >= cutoff);
-    if (recs.length === 0) {return {avgSpeed: null, maxGust: null};}
-    const speeds = recs.map(r => windMode === 'apparent' ? r.aSpeed : (r.tSpeed ?? 0));
-    const gusts  = recs.map(r => windMode === 'apparent' ? r.aGust  : (r.tGust  ?? 0));
-    return {
-      avgSpeed: speeds.reduce((a, b) => a + b, 0) / speeds.length,
-      maxGust: Math.max(...gusts),
-    };
-  }, [windHistory, windMode]);
+  const [showRose, setShowRose] = useState(true);
 
   return (
     <View style={[styles.panel, {backgroundColor: colors.surface}]}>
-      <PanelHeader title="WIND" accent={colors.windApparent} colors={colors} />
-
-      <View style={styles.centeredBlock}>
-        <WindRose
-          angle={activeWind?.value.angle}
-          speed={activeWind?.value.speed}
-          size={roseSize}
-        />
-      </View>
-
-      <View style={styles.windToggleRow}>
+      <View style={styles.panelHeaderRow}>
+        <View style={styles.panelHeaderFill}>
+          <PanelHeader title="WIND" accent={colors.windApparent} colors={colors} />
+        </View>
         <TouchableOpacity
-          style={[styles.windToggleBtn, windMode === 'apparent' && {backgroundColor: colors.windApparent}]}
-          onPress={() => setWindMode('apparent')}>
-          <Text style={[styles.windToggleTxt, {color: windMode === 'apparent' ? colors.background : colors.textMuted}]}>
-            AWA
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.windToggleBtn, windMode === 'true' && {backgroundColor: colors.windTrue}]}
-          onPress={() => setWindMode('true')}>
-          <Text style={[styles.windToggleTxt, {color: windMode === 'true' ? colors.background : colors.textMuted}]}>
-            TWA
+          style={[styles.roseToggleBtn, {borderColor: colors.border, backgroundColor: showRose ? colors.windApparent + '22' : colors.surfaceElevated}]}
+          onPress={() => setShowRose(v => !v)}>
+          <Text style={[styles.roseToggleTxt, {color: showRose ? colors.windApparent : colors.textMuted}]}>
+            ROSE
           </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.windStatsRow, {borderTopColor: colors.border}]}>
-        <View style={styles.windStatBlock}>
-          <Text style={[styles.windStatLabel, {color: colors.textMuted}]}>AVG 1H</Text>
-          <Text style={[styles.windStatValue, {color: accentColor}]}>
-            {avgSpeed !== null ? avgSpeed.toFixed(1) : '---'}
-            <Text style={[styles.windStatUnit, {color: colors.textMuted}]}> kn</Text>
-          </Text>
+      {showRose ? (
+        <View style={styles.centeredBlock}>
+          <WindRose
+            angle={windApparent?.value.angle}
+            speed={windApparent?.value.speed}
+            size={roseSize}
+          />
         </View>
-        <View style={[styles.windStatDivider, {backgroundColor: colors.border}]} />
-        <View style={styles.windStatBlock}>
-          <Text style={[styles.windStatLabel, {color: colors.textMuted}]}>GUST</Text>
-          <Text style={[styles.windStatValue, {color: colors.warning}]}>
-            {maxGust !== null ? maxGust.toFixed(1) : '---'}
-            <Text style={[styles.windStatUnit, {color: colors.textMuted}]}> kn</Text>
-          </Text>
+      ) : (
+        <View style={styles.windValuesBlock}>
+          <View style={[styles.windValueCell, {backgroundColor: colors.surfaceElevated, borderColor: colors.windApparent + '44'}]}>
+            <Text style={[styles.windValueLabel, {color: colors.textSecondary}]}>AWS</Text>
+            <View style={styles.windValueRow}>
+              <Text style={[styles.windValueNum, {color: colors.windApparent}]}>
+                {windApparent ? windApparent.value.speed.toFixed(1) : '---'}
+              </Text>
+              <Text style={[styles.windValueUnit, {color: colors.textMuted}]}> kn</Text>
+            </View>
+          </View>
+          <View style={[styles.windValueCell, {backgroundColor: colors.surfaceElevated, borderColor: colors.windApparent + '44'}]}>
+            <Text style={[styles.windValueLabel, {color: colors.textSecondary}]}>AWA</Text>
+            <Text style={[styles.windValueNum, {color: colors.windApparent}]}>
+              {windApparent ? String(Math.round(windApparent.value.angle)) + '°' : '---'}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
 
 // ─── Navigation panel ─────────────────────────────────────────────────────────
 
-function NavigationPanel({colors, compassSize, speedUnit}: {
-  colors: any;
-  compassSize: number;
-  speedUnit: string;
-}) {
-  const headingTrue = useBoatStore(s => s.headingTrue);
-  const waterSpeed = useBoatStore(s => s.waterSpeed);
+function NavigationPanel({colors}: {colors: any}) {
   const gps = useBoatStore(s => s.gps);
-
-  const speedDisplay = useMemo(() => {
-    if (!waterSpeed) {return null;}
-    switch (speedUnit) {
-      case 'kmh': return (waterSpeed.value * 1.852).toFixed(1);
-      case 'mph': return (waterSpeed.value * 1.15078).toFixed(1);
-      default: return waterSpeed.value.toFixed(1);
-    }
-  }, [waterSpeed, speedUnit]);
-  const speedUnitLabel = speedUnit === 'kmh' ? 'km/h' : speedUnit;
 
   return (
     <View style={[styles.panel, {backgroundColor: colors.surface}]}>
       <PanelHeader title="NAVIGATION" accent={colors.success} colors={colors} />
 
-      <View style={styles.centeredBlock}>
-        <CompassRose heading={headingTrue?.value ?? 0} size={compassSize} />
-      </View>
-
-      <View style={styles.navRow}>
-        <BigValue
-          label="HDG"
-          value={headingTrue ? String(Math.round(headingTrue.value)).padStart(3, '0') + '°' : null}
-          color={colors.text}
-          valueSize={48}
-          colors={colors}
-        />
-        <BigValue
-          label="COG"
-          value={gps ? String(Math.round(gps.value.cog)).padStart(3, '0') + '°' : null}
-          color={colors.textSecondary}
-          valueSize={48}
-          colors={colors}
-        />
-      </View>
-
-      <View style={styles.navRow}>
-        <BigValue
-          label="STW"
-          value={speedDisplay}
-          unit={speedUnitLabel}
-          color={colors.accent}
-          valueSize={48}
-          colors={colors}
-        />
-        <BigValue
-          label="SOG"
-          value={gps ? gps.value.sog.toFixed(1) : null}
-          unit="kn"
-          color={colors.accent}
-          valueSize={48}
-          colors={colors}
-        />
+      <View style={styles.windValuesBlock}>
+        <View style={[styles.windValueCell, {backgroundColor: colors.surfaceElevated, borderColor: colors.success + '44'}]}>
+          <Text style={[styles.windValueLabel, {color: colors.textSecondary}]}>SOG</Text>
+          <View style={styles.windValueRow}>
+            <Text style={[styles.windValueNum, {color: colors.accent}]}>
+              {gps ? gps.value.sog.toFixed(1) : '---'}
+            </Text>
+            <Text style={[styles.windValueUnit, {color: colors.textMuted}]}> kn</Text>
+          </View>
+        </View>
+        <View style={[styles.windValueCell, {backgroundColor: colors.surfaceElevated, borderColor: colors.success + '44'}]}>
+          <Text style={[styles.windValueLabel, {color: colors.textSecondary}]}>COG</Text>
+          <Text style={[styles.windValueNum, {color: colors.textSecondary}]}>
+            {gps ? String(Math.round(gps.value.cog)).padStart(3, '0') + '°' : '---'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -393,9 +333,8 @@ export function DashboardScreen() {
   const rowCount = Math.max(1, Math.ceil(panelCount / 2));
   const cellH = Math.floor((height - 60) / rowCount); // 60 ≈ status bar
 
-  // Leave room for panel header + labels + stats below the graphic
-  const roseSize = Math.min(cellW - 24, Math.floor(cellH * 0.55), 400);
-  const compassSize = Math.min(cellW - 28, Math.floor(cellH * 0.45), 350);
+  // Leave room for panel header below the graphic
+  const roseSize = Math.min(cellW - 24, Math.floor(cellH * 0.80), 400);
   const rudderSize = Math.min(cellW - 24, Math.floor(cellH * 0.50), 300);
 
   // Build ordered list of visible panel elements
@@ -404,7 +343,7 @@ export function DashboardScreen() {
     panels.push(<WindPanel key="wind" colors={colors} roseSize={roseSize} />);
   }
   if (visiblePanels.navigation) {
-    panels.push(<NavigationPanel key="navigation" colors={colors} compassSize={compassSize} speedUnit={speedUnit} />);
+    panels.push(<NavigationPanel key="navigation" colors={colors} />);
   }
   if (visiblePanels.autopilot) {
     panels.push(<AutopilotPanel key="autopilot" colors={colors} rudderSize={rudderSize} compact />);
@@ -599,61 +538,62 @@ const styles = StyleSheet.create({
   imuCell: {alignItems: 'center'},
   imuValue: {fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums']},
 
-  // Wind toggle
-  windToggleRow: {
+  // Wind panel header row
+  panelHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  panelHeaderFill: {
+    flex: 1,
+  },
+  roseToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderLeftWidth: 1,
+    justifyContent: 'center',
+  },
+  roseToggleTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  windValuesBlock: {
+    flex: 1,
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
   },
-  windToggleBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
-  windToggleTxt: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-
-  // Wind stats
-  windStatsRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  windStatBlock: {
-    flex: 1,
+  windValueCell: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
   },
-  windStatDivider: {
-    width: 1,
-    marginVertical: 4,
-  },
-  windStatLabel: {
+  windValueLabel: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  windStatValue: {
-    fontSize: 24,
+  windValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  windValueNum: {
+    fontSize: 56,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
-  windStatUnit: {
-    fontSize: 12,
-    fontWeight: '500',
+  windValueUnit: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginLeft: 3,
   },
 
-  // Navigation
-  navRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 4,
-  },
 
   // Depth
   depthContent: {
