@@ -314,6 +314,31 @@ function PressurePanel({colors, width}: {colors: any; width: number}) {
   );
 }
 
+// ─── Engine panel ─────────────────────────────────────────────────────────────
+
+function EnginePanel({colors}: {colors: any}) {
+  const rpm = useBoatStore(s => s.rpm);
+  const value = rpm?.value ?? null;
+  const rpmColor = value === null ? colors.textMuted
+    : value > 2600 ? colors.danger
+    : value > 2200 ? colors.warning
+    : colors.success;
+
+  return (
+    <View style={[styles.panel, {backgroundColor: colors.surface}]}>
+      <PanelHeader title="ENGINE" accent={colors.accent} colors={colors} />
+      <View style={styles.windValuesBlock}>
+        <View style={[styles.windValueCell, {backgroundColor: colors.surfaceElevated, borderColor: rpmColor + '44'}]}>
+          <Text style={[styles.windValueLabel, {color: colors.textSecondary}]}>RPM</Text>
+          <Text style={[styles.windValueNum, {color: rpmColor}]}>
+            {value !== null ? Math.round(value) : '---'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
 export function DashboardScreen() {
@@ -329,7 +354,7 @@ export function DashboardScreen() {
   const cellW = Math.floor(width / 2);
 
   // Compute row count first so sizes adapt to available height per row
-  const panelCount = [visiblePanels.wind, visiblePanels.navigation, visiblePanels.autopilot, visiblePanels.depth, visiblePanels.pressure].filter(Boolean).length;
+  const panelCount = [visiblePanels.wind, visiblePanels.navigation, visiblePanels.autopilot, visiblePanels.depth, visiblePanels.pressure, visiblePanels.engine].filter(Boolean).length;
   const rowCount = Math.max(1, Math.ceil(panelCount / 2));
   const cellH = Math.floor((height - 60) / rowCount); // 60 ≈ status bar
 
@@ -353,6 +378,9 @@ export function DashboardScreen() {
   }
   if (visiblePanels.pressure) {
     panels.push(<PressurePanel key="pressure" colors={colors} width={cellW - 8} />);
+  }
+  if (visiblePanels.engine) {
+    panels.push(<EnginePanel key="engine" colors={colors} />);
   }
 
   // Group into rows of 2

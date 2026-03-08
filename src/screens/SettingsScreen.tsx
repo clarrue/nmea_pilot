@@ -209,7 +209,7 @@ export function SettingsScreen() {
         {/* Dashboard panels */}
         <SectionHeader title="Dashboard Panels" />
         <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border}]}>
-          {(['wind', 'navigation', 'autopilot', 'depth', 'pressure'] as const).map(panel => {
+          {(['wind', 'navigation', 'autopilot', 'depth', 'pressure', 'engine'] as const).map(panel => {
             const active = settings.visiblePanels[panel];
             return (
               <SettingRow key={panel} label={panel.charAt(0).toUpperCase() + panel.slice(1)}>

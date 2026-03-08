@@ -8,6 +8,8 @@ import {
   parseRMC,
   parseMDA,
   parseXDR,
+  parseRPM,
+  parseXDREngine,
 } from './NMEAParsers';
 import {useBoatStore} from '../store/useBoatStore';
 
@@ -159,11 +161,26 @@ class NMEAServiceClass {
         }
         break;
       }
+      case 'RPM': {
+        const rpm = parseRPM(sentence);
+        if (rpm !== null) {
+          store.setRpm(rpm);
+        }
+        break;
+      }
       case 'XDR': {
         const hPa = parseXDR(sentence);
         if (hPa !== null) {
           store.setPressure(hPa);
         }
+        const engineData = parseXDREngine(sentence);
+        if (engineData.coolantTemp !== undefined) {store.setCoolantTemp(engineData.coolantTemp);}
+        if (engineData.oilPressure !== undefined) {store.setOilPressure(engineData.oilPressure);}
+        if (engineData.oilTemp !== undefined) {store.setOilTemp(engineData.oilTemp);}
+        if (engineData.alternatorVoltage !== undefined) {store.setAlternatorVoltage(engineData.alternatorVoltage);}
+        if (engineData.fuelLevel !== undefined) {store.setFuelLevel(engineData.fuelLevel);}
+        if (engineData.batteryVoltage !== undefined) {store.setBatteryVoltage(engineData.batteryVoltage);}
+        if (engineData.engineHours !== undefined) {store.setEngineHours(engineData.engineHours);}
         break;
       }
       default:

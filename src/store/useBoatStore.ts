@@ -5,6 +5,7 @@ import {ConnectionSlice, createConnectionSlice} from './slices/connection.slice'
 import {SettingsSlice, createSettingsSlice} from './slices/settings.slice';
 import {WindHistorySlice, createWindHistorySlice} from './slices/windHistory.slice';
 import {PressureHistorySlice, createPressureHistorySlice} from './slices/pressureHistory.slice';
+import {EngineSlice, createEngineSlice} from './slices/engine.slice';
 
 export type BoatStore =
   NmeaSlice &
@@ -12,7 +13,8 @@ export type BoatStore =
   ConnectionSlice &
   SettingsSlice &
   WindHistorySlice &
-  PressureHistorySlice;
+  PressureHistorySlice &
+  EngineSlice;
 
 export const useBoatStore = create<BoatStore>()((set, get) => ({
   ...createNmeaSlice(set as (fn: (state: NmeaSlice) => Partial<NmeaSlice>) => void),
@@ -29,4 +31,5 @@ export const useBoatStore = create<BoatStore>()((set, get) => ({
   ...createPressureHistorySlice(
     set as (fn: (state: PressureHistorySlice) => Partial<PressureHistorySlice>) => void,
   ),
+  ...createEngineSlice(set as (fn: (state: EngineSlice) => Partial<EngineSlice>) => void),
 }));

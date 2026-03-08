@@ -7,11 +7,13 @@ import {WindScreen} from '../screens/WindScreen';
 import {AutopilotScreen} from '../screens/AutopilotScreen';
 import {NavigationScreen} from '../screens/NavigationScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
+import {EngineScreen} from '../screens/EngineScreen';
 import {useTheme} from '../theme/ThemeContext';
 
 export type RootTabParamList = {
   Dashboard: undefined;
   Wind: undefined;
+  Engine: undefined;
   Autopilot: undefined;
   Navigation: undefined;
   Settings: undefined;
@@ -61,6 +63,16 @@ export function AppNavigator() {
             tabBarLabel: 'Wind',
             tabBarIcon: ({color, focused}) => (
               <TabIcon icon="🌬" focused={focused} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Engine"
+          component={EngineScreen}
+          options={{
+            tabBarLabel: 'Engine',
+            tabBarIcon: ({color, focused}) => (
+              <TabIcon icon="🔧" focused={focused} color={color} />
             ),
           }}
         />

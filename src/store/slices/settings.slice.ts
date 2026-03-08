@@ -20,6 +20,7 @@ export interface VisiblePanels {
   autopilot: boolean;
   depth: boolean;
   pressure: boolean;
+  engine: boolean;
 }
 
 export interface Settings {
@@ -41,7 +42,7 @@ const DEFAULT_SETTINGS: Settings = {
   depthUnit: 'm',
   speedUnit: 'kn',
   staleness: {warnAfterMs: 5000, hideAfterMs: 15000},
-  visiblePanels: {wind: true, navigation: true, autopilot: true, depth: true, pressure: true},
+  visiblePanels: {wind: true, navigation: true, autopilot: true, depth: true, pressure: true, engine: true},
 };
 
 export interface SettingsSlice {

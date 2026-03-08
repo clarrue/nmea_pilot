@@ -301,3 +301,150 @@ export function getSentenceType(sentence: string): string {
   const s = sentence.startsWith('$') ? sentence.slice(1) : sentence;
   return s.slice(2, 5).toUpperCase();
 }
+
+/**
+ * Parse RPM (Engine RPM) sentence from NMEA 2000 gateway (PGN 127488).
+ *
+ * Format: $IIRPM,E,<engine#>,<rpm>,<pitch%>,A*hh
+ * Fields: [0]=type, [1]=source (E=Engine), [2]=engine number,
+ *         [3]=RPM, [4]=pitch%, [5]=status (A=valid)
+ *
+ * Only accepts source 'E' (engine). Status must be 'A'.
+ * Returns RPM as number, or null.
+ */
+export function parseRPM(sentence: string): number | null {
+  if (!validateChecksum(sentence)) {
+    return null;
+  }
+  const fields = parseFields(sentence);
+  if (fields.length < 6) {
+    return null;
+  }
+  const source = fields[1];
+  if (!source || source.toUpperCase() !== 'E') {
+    return null;
+  }
+  const status = fields[5];
+  if (!status || status.toUpperCase() !== 'A') {
+    return null;
+  }
+  const rpm = parseFloat(fields[3]);
+  if (isNaN(rpm) || rpm < 0) {
+    return null;
+  }
+  return rpm;
+}
+
+export interface XDREngineData {
+  coolantTemp?: number;       // °C
+  oilPressure?: number;       // bar
+  oilTemp?: number;           // °C
+  alternatorVoltage?: number; // V
+  fuelLevel?: number;         // % (0-100)
+  batteryVoltage?: number;    // V
+  engineHours?: number;       // hours
+}
+
+/**
+ * Parse XDR (Transducer Measurement) sentence for engine data from NMEA 2000 gateway.
+ *
+ * Fields come in groups of 4 starting at index 1: type, value, unit, name
+ *
+ * Recognized transducer names (case-insensitive):
+ *   coolantTemp:       ENGTEMP, COOLANTTEMP, ENGINE#0.TEMP
+ *   oilPressure:       ENGOILP, OILPRESS, ENGINE#0.OILP
+ *   oilTemp:           ENGOILTEMP, OILTEMP, ENGINE#0.OILTEMP
+ *   alternatorVoltage: ALTVOLT, ALTVOLTAGE, ENGINE#0.ALTVOLT
+ *   fuelLevel:         FUELLEVEL, FUEL, FLUID#0 (ratio 0-1 → multiply by 100)
+ *   batteryVoltage:    BATVOLT, BATTVOLT, BATTERY#0
+ *   engineHours:       ENGHOURS, ENGINEHOURS (unit H=hours; unit S=seconds → divide by 3600)
+ *
+ * Returns an object with any recognized fields populated.
+ */
+export function parseXDREngine(sentence: string): XDREngineData {
+  const result: XDREngineData = {};
+
+  if (!validateChecksum(sentence)) {
+    return result;
+  }
+  const fields = parseFields(sentence);
+
+  for (let i = 1; i + 3 < fields.length; i += 4) {
+    const type = (fields[i] ?? '').toUpperCase();
+    const valStr = fields[i + 1] ?? '';
+    const unit = (fields[i + 2] ?? '').toUpperCase();
+    const name = (fields[i + 3] ?? '').toUpperCase();
+
+    const val = parseFloat(valStr);
+    if (isNaN(val)) {
+      continue;
+    }
+
+    // Coolant temperature: type C, °C
+    if (
+      type === 'C' &&
+      (name === 'ENGTEMP' || name === 'COOLANTTEMP' || name === 'ENGINE#0.TEMP')
+    ) {
+      result.coolantTemp = val;
+      continue;
+    }
+
+    // Oil pressure: type P, bar
+    if (
+      type === 'P' &&
+      (name === 'ENGOILP' || name === 'OILPRESS' || name === 'ENGINE#0.OILP')
+    ) {
+      result.oilPressure = val;
+      continue;
+    }
+
+    // Oil temperature: type C, °C
+    if (
+      type === 'C' &&
+      (name === 'ENGOILTEMP' || name === 'OILTEMP' || name === 'ENGINE#0.OILTEMP')
+    ) {
+      result.oilTemp = val;
+      continue;
+    }
+
+    // Alternator voltage: type U, V
+    if (
+      type === 'U' &&
+      (name === 'ALTVOLT' || name === 'ALTVOLTAGE' || name === 'ENGINE#0.ALTVOLT')
+    ) {
+      result.alternatorVoltage = val;
+      continue;
+    }
+
+    // Fuel level: type G, ratio 0-1 → percent
+    if (
+      type === 'G' &&
+      (name === 'FUELLEVEL' || name === 'FUEL' || name === 'FLUID#0')
+    ) {
+      result.fuelLevel = val * 100;
+      continue;
+    }
+
+    // Battery voltage: type U, V
+    if (
+      type === 'U' &&
+      (name === 'BATVOLT' || name === 'BATTVOLT' || name === 'BATTERY#0')
+    ) {
+      result.batteryVoltage = val;
+      continue;
+    }
+
+    // Engine hours: type H (hours) or S (seconds)
+    if (name === 'ENGHOURS' || name === 'ENGINEHOURS') {
+      if (unit === 'S') {
+        result.engineHours = val / 3600;
+      } else {
+        // H or empty — treat as hours
+        result.engineHours = val;
+      }
+      continue;
+    }
+  }
+
+  return result;
+}
